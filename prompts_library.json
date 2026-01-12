@@ -1,0 +1,29 @@
+{
+  "system_prompts": {
+    "PASSPORT": {
+      "prompt": "Extract the following fields from the Passport image/text: 'passport_number', 'surname', 'given_names', 'nationality', 'date_of_birth' (YYYY-MM-DD), 'sex' (M/F), 'date_of_expiry' (YYYY-MM-DD), 'issuing_authority'. Ensure dates are strictly formatted.",
+      "required_fields": ["passport_number", "surname"]
+    },
+    "PAYSTUB": {
+      "prompt": "Analyze the Paystub. Extract: 'employer_name', 'employee_name', 'pay_period_start', 'pay_period_end', 'gross_pay', 'net_pay', 'taxes_deducted'. Return amounts as floats without currency symbols.",
+      "required_fields": ["employer_name", "net_pay"]
+    },
+    "BANK_STATEMENT": {
+      "prompt": "Analyze the Bank Statement. Extract: 'bank_name', 'account_holder', 'account_number', 'statement_date', 'opening_balance', 'closing_balance', 'total_deposits', 'total_withdrawals'.",
+      "required_fields": ["account_number", "closing_balance"]
+    },
+    "TAX_RETURN": {
+      "prompt": "Analyze the US 1040 Tax Form. Extract: 'filing_year', 'taxpayer_name', 'ssn_last_4', 'total_income' (Line 9), 'adjusted_gross_income' (Line 11), 'taxable_income' (Line 15).",
+      "required_fields": ["filing_year", "total_income"]
+    },
+    "INVOICE": {
+      "prompt": "Extract Invoice details: 'invoice_number', 'invoice_date', 'vendor_name', 'bill_to_name', 'line_items' (as an array of objects with description, qty, unit_price), 'total_amount', 'tax_amount'.",
+      "required_fields": ["invoice_number", "total_amount"]
+    },
+    "DRIVER_LICENSE": {
+      "prompt": "Extract Driver License details: 'license_number', 'state', 'full_name', 'address', 'date_of_birth', 'issue_date', 'expiry_date', 'restrictions'.",
+      "required_fields": ["license_number", "expiry_date"]
+    }
+  },
+  "classifier_prompt": "You are a banking document classifier. Classify the input text into one of these categories: [PASSPORT, PAYSTUB, BANK_STATEMENT, TAX_RETURN, INVOICE, DRIVER_LICENSE, UTILITY_BILL, LOAN_AGREEMENT, VOIDED_CHECK, CREDIT_CARD_STATEMENT]. Return ONLY the category string."
+}

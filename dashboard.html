@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BankDocAI Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-blue-900 text-white p-4 shadow-lg">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold"><i class="fas fa-university mr-2"></i>BankDocAI</h1>
+                <div v-if="token">
+                    <span class="mr-4">Welcome, Admin</span>
+                    <button @click="logout" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Login -->
+        <div v-if="!token" class="flex-grow flex items-center justify-center">
+            <div class="bg-white p-8 rounded shadow-md w-96">
+                <h2 class="text-xl mb-4 font-bold">Login</h2>
+                <form @submit.prevent="login">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Username</label>
+                        <input v-model="loginForm.username" type="text" class="w-full border p-2 rounded" placeholder="admin">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium mb-1">Password</label>
+                        <input v-model="loginForm.password" type="password" class="w-full border p-2 rounded" placeholder="admin">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Sign In</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div v-else class="container mx-auto p-6 flex-grow">
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white p-4 rounded shadow border-l-4 border-blue-500">
+                    <div class="text-gray-500 text-sm">Total Docs</div>
+                    <div class="text-2xl font-bold">{{ documents.length }}</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow border-l-4 border-green-500">
+                    <div class="text-gray-500 text-sm">Processed</div>
+                    <div class="text-2xl font-bold">{{ documents.filter(d => d.status === 'COMPLETED').length }}</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow border-l-4 border-yellow-500">
+                    <div class="text-gray-500 text-sm">Pending</div>
+                    <div class="text-2xl font-bold">{{ documents.filter(d => d.status === 'PENDING' || d.status === 'PROCESSING').length }}</div>
+                </div>
+            </div>
+
+            <!-- Upload -->
+            <div class="bg-white p-6 rounded shadow mb-8">
+                <h2 class="text-lg font-bold mb-4">Upload Document</h2>
+                <div class="flex gap-4">
+                    <input type="file" ref="fileInput" class="border p-2 rounded w-full">
+                    <button @click="uploadFile" :disabled="uploading" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400">
+                        <i v-if="uploading" class="fas fa-spinner fa-spin mr-2"></i>
+                        {{ uploading ? 'Uploading...' : 'Upload' }}
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Supports PDF, JPG, PNG (Simulated text extraction for demo)</p>
+            </div>
+
+            <!-- Documents Table -->
+            <div class="bg-white rounded shadow overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h2 class="text-lg font-bold">Document Repository</h2>
+                    <button @click="fetchDocuments" class="text-blue-600 hover:text-blue-800"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+                <table class="w-full text-left">
+                    <thead class="bg-slate-100">
+                        <tr>
+                            <th class="p-4">Filename</th>
+                            <th class="p-4">Date</th>
+                            <th class="p-4">Type</th>
+                            <th class="p-4">Status</th>
+                            <th class="p-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="doc in documents" :key="doc.id" class="border-b hover:bg-slate-50">
+                            <td class="p-4 font-medium">{{ doc.filename }}</td>
+                            <td class="p-4 text-sm text-gray-600">{{ new Date(doc.upload_date).toLocaleDateString() }}</td>
+                            <td class="p-4">
+                                <span v-if="doc.doc_type" class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">{{ doc.doc_type }}</span>
+                                <span v-else class="text-gray-400">-</span>
+                            </td>
+                            <td class="p-4">
+                                <span :class="{
+                                    'bg-green-100 text-green-800': doc.status === 'COMPLETED',
+                                    'bg-yellow-100 text-yellow-800': doc.status === 'PENDING' || doc.status === 'PROCESSING',
+                                    'bg-red-100 text-red-800': doc.status === 'FAILED'
+                                }" class="text-xs px-2 py-1 rounded font-bold">{{ doc.status }}</span>
+                            </td>
+                            <td class="p-4">
+                                <button @click="viewDetails(doc)" class="text-blue-600 hover:underline text-sm">View Data</button>
+                            </td>
+                        </tr>
+                        <tr v-if="documents.length === 0">
+                            <td colspan="5" class="p-8 text-center text-gray-500">No documents found. Upload one to start.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div v-if="selectedDoc" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h3 class="font-bold text-lg">{{ selectedDoc.filename }}</h3>
+                    <button @click="selectedDoc = null" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-6 overflow-y-auto">
+                    <div class="mb-4">
+                        <label class="text-xs font-bold text-gray-500 uppercase">Document Type</label>
+                        <div class="text-lg">{{ selectedDoc.doc_type || 'Unknown' }}</div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Extracted Data</label>
+                        <pre class="bg-slate-900 text-green-400 p-4 rounded text-sm overflow-x-auto mt-2">{{ JSON.stringify(selectedDoc.extracted_data, null, 2) }}</pre>
+                    </div>
+                </div>
+                <div class="p-4 border-t bg-gray-50 flex justify-end">
+                    <button @click="selectedDoc = null" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const token = ref(localStorage.getItem('token') || null);
+                const loginForm = ref({ username: 'admin', password: 'admin' });
+                const documents = ref([]);
+                const uploading = ref(false);
+                const fileInput = ref(null);
+                const selectedDoc = ref(null);
+
+                const login = async () => {
+                    const params = new URLSearchParams();
+                    params.append('username', loginForm.value.username);
+                    params.append('password', loginForm.value.password);
+                    try {
+                        const res = await axios.post(`${API_URL}/token`, params);
+                        token.value = res.data.access_token;
+                        localStorage.setItem('token', token.value);
+                        fetchDocuments();
+                    } catch (e) {
+                        alert('Login failed');
+                    }
+                };
+
+                const logout = () => {
+                    token.value = null;
+                    localStorage.removeItem('token');
+                };
+
+                const fetchDocuments = async () => {
+                    if (!token.value) return;
+                    try {
+                        const res = await axios.get(`${API_URL}/documents`, {
+                            headers: { Authorization: `Bearer ${token.value}` }
+                        });
+                        documents.value = res.data;
+                    } catch (e) {
+                        console.error(e);
+                        if (e.response && e.response.status === 401) logout();
+                    }
+                };
+
+                const uploadFile = async () => {
+                    const file = fileInput.value.files[0];
+                    if (!file) return alert("Select a file");
+                    
+                    uploading.value = true;
+                    const formData = new FormData();
+                    formData.append("file", file);
+
+                    try {
+                        await axios.post(`${API_URL}/upload`, formData, {
+                            headers: { 
+                                Authorization: `Bearer ${token.value}`,
+                                'Content-Type': 'multipart/form-data'
+                            }
+                        });
+                        fileInput.value.value = "";
+                        await fetchDocuments();
+                        // Poll for update
+                        setTimeout(fetchDocuments, 2000);
+                        setTimeout(fetchDocuments, 5000);
+                    } catch (e) {
+                        alert("Upload failed");
+                    } finally {
+                        uploading.value = false;
+                    }
+                };
+
+                const viewDetails = (doc) => {
+                    selectedDoc.value = doc;
+                };
+
+                onMounted(() => {
+                    if (token.value) fetchDocuments();
+                });
+
+                return { token, loginForm, login, logout, documents, uploadFile, uploading, fileInput, selectedDoc, viewDetails, fetchDocuments };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
+
